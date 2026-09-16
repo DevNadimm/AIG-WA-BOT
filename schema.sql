@@ -450,3 +450,8 @@ CREATE TABLE audit_logs (
     ip_address VARCHAR(50),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ - -   P h a s e   5 :   A P I   K e y s   M a n a g e m e n t 
+ A L T E R   T A B L E   b o t _ i n s t a n c e s   A D D   C O L U M N   l l m _ p r o v i d e r   V A R C H A R ( 5 0 )   D E F A U L T   ' g e m i n i ' ; 
+ A L T E R   T A B L E   b o t _ i n s t a n c e s   A D D   C O L U M N   l l m _ a p i _ k e y   T E X T ;  
+ 

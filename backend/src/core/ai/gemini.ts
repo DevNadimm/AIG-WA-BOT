@@ -1,57 +1,80 @@
-import { GoogleGenAI } from '@google/genai';
-import { logger } from '../../app.js';
-import dotenv from 'dotenv';
+import { GoogleGenAI } from "@google/genai";
+import { logger } from "../../app.js";
+import dotenv from "dotenv";
+import { supabase } from "../../config/supabase.js";
 
 dotenv.config();
 
-const apiKeys = [
-  process.env.GEMINI_API_KEY,
-  process.env.GEMINI_API_KEY_2,
-  process.env.GEMINI_API_KEY_3,
-  process.env.GEMINI_API_KEY_4
-].filter(Boolean) as string[];
+let cachedDbKey: string | null = null;
+let lastKeyFetch = 0;
 
-let currentKeyIndex = 0;
-export let aiClient = new GoogleGenAI({ apiKey: apiKeys[0] || '' });
+export async function getActiveApiKey(): Promise<string[]> {
+  const now = Date.now();
+  if (now - lastKeyFetch > 60000) {
+    try {
+      const { data } = await supabase.from("bot_instances").select("llm_api_key").limit(1);
+      if (data && data[0] && data[0].llm_api_key) {
+        cachedDbKey = data[0].llm_api_key;
+      }
+      lastKeyFetch = now;
+    } catch (e) {
+      logger.error("Failed to fetch API key from DB");
+    }
+  }
 
-if (apiKeys.length === 0) {
-  logger.warn('No GEMINI_API_KEY found. AI routing and generation will fail.');
+  const envKeys = [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4
+  ].filter(Boolean) as string[];
+
+  let dbKeys: string[] = [];
+  if (cachedDbKey) {
+    try {
+      if (cachedDbKey.trim().startsWith("[")) {
+        dbKeys = JSON.parse(cachedDbKey);
+      } else {
+        dbKeys = cachedDbKey.split(",").map(k => k.trim()).filter(Boolean);
+      }
+    } catch (e) {
+      dbKeys = [cachedDbKey];
+    }
+    return [...dbKeys, ...envKeys.filter(k => !dbKeys.includes(k))];
+  }
+  return envKeys;
 }
 
-async function withRetry<T>(operation: () => Promise<T>): Promise<T> {
+async function withRetry<T>(operation: (client: GoogleGenAI) => Promise<T>): Promise<T> {
+  const apiKeys = await getActiveApiKey();
+  
+  if (apiKeys.length === 0) {
+    throw new Error("No GEMINI_API_KEY found in DB or .env. AI routing and generation will fail.");
+  }
+
   let attempt = 0;
   while (attempt < apiKeys.length) {
     try {
-      return await operation();
+      const client = new GoogleGenAI({ apiKey: apiKeys[attempt] });
+      return await operation(client);
     } catch (error: any) {
-      logger.warn(`API Key ${currentKeyIndex + 1} failed with error ${error?.status || 'unknown'}. Switching key...`);
-      currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
-      aiClient = new GoogleGenAI({ apiKey: apiKeys[currentKeyIndex] });
+      logger.warn(`API Key ${attempt + 1} failed with error ${error?.status || "unknown"}. Switching key...`);
       attempt++;
       if (attempt === apiKeys.length) {
-          throw new Error('All API keys have been exhausted or failed.');
+          throw new Error("All API keys have been exhausted or failed.");
       }
     }
   }
-  throw new Error('All API keys have been exhausted/rate limited.');
+  throw new Error("All API keys have been exhausted/rate limited.");
 }
 
-/**
- * Helper to generate structured JSON using Gemini
- */
-export async function generateStructuredContent(
-  prompt: string, 
-  modelName: string, 
-  responseSchema: any, 
-  temperature: number = 0.1, 
-  maxOutputTokens?: number
-) {
+export async function generateStructuredContent(prompt: string, modelName: string, responseSchema: any, temperature: number = 0.1, maxOutputTokens?: number) {
   try {
-    const response = await withRetry(() => aiClient.models.generateContent({
+    const response = await withRetry((client) => client.models.generateContent({
       model: modelName,
       contents: prompt,
       config: {
-        responseMimeType: 'application/json',
+        responseMimeType: "application/json",
         responseSchema: responseSchema,
         temperature,
         ...(maxOutputTokens && { maxOutputTokens })
@@ -62,23 +85,14 @@ export async function generateStructuredContent(
     if (!text) return null;
     return JSON.parse(text);
   } catch (error) {
-    logger.error({ err: error }, 'Failed to generate structured content from Gemini');
+    logger.error({ err: error }, "Failed to generate structured content from Gemini");
     return null;
   }
 }
 
-/**
- * Helper to generate content with tools (Function Calling)
- */
-export async function generateWithTools(
-  prompt: string, 
-  modelName: string, 
-  tools: any[],
-  temperature: number = 0.2,
-  maxOutputTokens?: number
-) {
+export async function generateWithTools(prompt: string, modelName: string, tools: any[], temperature: number = 0.2, maxOutputTokens?: number) {
   try {
-    const response = await withRetry(() => aiClient.models.generateContent({
+    const response = await withRetry((client) => client.models.generateContent({
       model: modelName,
       contents: prompt,
       config: {
@@ -93,14 +107,30 @@ export async function generateWithTools(
       functionCalls: response.functionCalls,
     };
   } catch (error) {
-    logger.error({ err: error }, 'Failed to generate content with tools from Gemini');
+    logger.error({ err: error }, "Failed to generate content with tools from Gemini");
     return null;
   }
 }
 
-/**
- * Helper to generate content in an agentic loop (Conversation History + Tools)
- */
+export async function generateGeneralResponse(prompt: string, modelName: string, systemInstruction?: string, temperature: number = 0.7, maxOutputTokens?: number) {
+  try {
+    const response = await withRetry((client) => client.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: {
+        ...(systemInstruction && { systemInstruction }),
+        temperature,
+        ...(maxOutputTokens && { maxOutputTokens })
+      }
+    }));
+    
+    return response.text;
+  } catch (error) {
+    logger.error({ err: error }, "Failed to generate general response from Gemini");
+    return null;
+  }
+}
+
 export async function generateAgenticResponse(
   contents: any[], 
   modelName: string, 
@@ -123,37 +153,57 @@ export async function generateAgenticResponse(
       config.systemInstruction = systemInstruction;
     }
 
-    const response = await withRetry(() => aiClient.models.generateContent({
+    const response = await withRetry((client) => client.models.generateContent({
       model: modelName,
-      contents: contents,
-      config: config
+      contents,
+      config
     }));
     
     return {
       text: response.text,
       functionCalls: response.functionCalls,
-      parts: response.candidates?.[0]?.content?.parts || []
     };
   } catch (error) {
-    logger.error({ err: error }, 'Failed to generate agentic response from Gemini');
+    logger.error({ err: error }, "Failed to generate agentic response from Gemini");
     return null;
   }
 }
 
-/**
- * Generates an embedding for a given text.
- */
-export async function generateEmbedding(text: string, model: string = 'gemini-embedding-001'): Promise<number[] | null> {
-  return await withRetry(async () => {
+export function buildGeminiTools(dbTools: any[]) {
+  if (!dbTools || dbTools.length === 0) return [];
+
+  const functionDeclarations = dbTools.map(tool => {
+    let parameters = tool.parameters;
+    if (parameters && !parameters.type) {
+        parameters = {
+            type: "object",
+            properties: parameters.properties || parameters,
+            required: parameters.required || []
+        };
+    }
+    return {
+      name: tool.name,
+      description: tool.description,
+      parameters: parameters
+    };
+  });
+
+  return [{
+    functionDeclarations
+  }];
+}
+
+export async function generateEmbedding(text: string, model: string = "text-embedding-004"): Promise<number[] | null> {
+  return await withRetry(async (client) => {
     try {
-      const response = await aiClient.models.embedContent({
+      const response = await client.models.embedContent({
         model,
         contents: text,
         config: { outputDimensionality: 768 }
       });
       return response.embeddings?.[0]?.values || null;
     } catch (error) {
-      logger.error({ err: error }, 'Failed to generate embedding');
+      logger.error({ err: error }, "Failed to generate embedding");
       return null;
     }
   });
