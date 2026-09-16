@@ -17,9 +17,17 @@ export class ModelResolver {
       }
     }
     
-    // Fallback or Router: find the first active model (or one specifically designated via business_rules in future)
+    // Fallback or Router: prioritize 'flash' for routing to save tokens, otherwise pick first active
     const models = configCache.getTable('ai_models');
-    const fallbackModel = models.find(m => m.is_active);
+    
+    let fallbackModel;
+    if (purpose === 'ROUTER') {
+      fallbackModel = models.find(m => m.is_active && m.name.includes('flash'));
+    }
+    
+    if (!fallbackModel) {
+      fallbackModel = models.find(m => m.is_active);
+    }
     
     if (fallbackModel) {
       return {
