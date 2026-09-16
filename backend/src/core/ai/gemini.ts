@@ -22,13 +22,6 @@ export async function getActiveApiKey(): Promise<string[]> {
     }
   }
 
-  const envKeys = [
-    process.env.GEMINI_API_KEY,
-    process.env.GEMINI_API_KEY_2,
-    process.env.GEMINI_API_KEY_3,
-    process.env.GEMINI_API_KEY_4
-  ].filter(Boolean) as string[];
-
   let dbKeys: string[] = [];
   if (cachedDbKey) {
     try {
@@ -40,9 +33,8 @@ export async function getActiveApiKey(): Promise<string[]> {
     } catch (e) {
       dbKeys = [cachedDbKey];
     }
-    return [...dbKeys, ...envKeys.filter(k => !dbKeys.includes(k))];
   }
-  return envKeys;
+  return dbKeys;
 }
 
 async function withRetry<T>(operation: (client: GoogleGenAI) => Promise<T>): Promise<T> {
