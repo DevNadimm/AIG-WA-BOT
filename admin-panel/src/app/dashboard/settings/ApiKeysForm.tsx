@@ -58,6 +58,7 @@ export function ApiKeysForm({ bot }: { bot: any }) {
         setMessage({ type: "error", text: result.error });
       } else {
         setMessage({ type: "success", text: "API Keys updated successfully." });
+        setTimeout(() => setMessage({ type: "", text: "" }), 3000);
       }
     });
   };
