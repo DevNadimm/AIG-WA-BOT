@@ -14,9 +14,10 @@ export async function processIncomingMessage(
   realPhone?: string,
   pushName?: string,
   messageId?: string,
-  lid?: string
+  lid?: string,
+  isFromMe: boolean = false
 ) {
-  logger.info(`Pipeline started for message from ${remoteJid} (phone: ${realPhone}, name: ${pushName}, lid: ${lid})`);
+  logger.info(`Pipeline started for message from ${remoteJid} (phone: ${realPhone}, name: ${pushName}, lid: ${lid}, isFromMe: ${isFromMe})`);
 
   // 1. Resolve Customer
   const phone = realPhone || remoteJid.split('@')[0];
@@ -36,9 +37,9 @@ export async function processIncomingMessage(
   // Save the incoming message to the database
   const { error: msgError } = await supabase.from('conversation_messages').insert([{
     conversation_id: conversationId,
-    sender_type: 'CUSTOMER',
+    sender_type: isFromMe ? 'HUMAN' : 'CUSTOMER',
     content: text,
-    status: 'delivered',
+    status: isFromMe ? 'sent' : 'delivered',
     whatsapp_message_id: messageId
   }]);
   
@@ -54,6 +55,13 @@ export async function processIncomingMessage(
   await supabase.from('conversations')
     .update({ last_message_at: new Date().toISOString() })
     .eq('id', conversationId);
+
+  // If this was an outgoing message sent directly from the owner's phone (fromMe), 
+  // we do NOT want the AI to reply to itself. We just exit.
+  if (isFromMe) {
+    logger.info(`Message was fromMe (owner replied directly). Saved to DB. Exiting pipeline.`);
+    return;
+  }
 
   // If a human is actively handling this or the customer is waiting for a human,
   // we DO NOT trigger the AI. We only save the message for the human to see.

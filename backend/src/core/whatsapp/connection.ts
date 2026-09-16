@@ -145,9 +145,13 @@ export async function initWhatsApp(sessionName: string = 'default') {
     if (m.type !== 'notify') return;
     
     for (const msg of m.messages) {
-      if (!msg.key.fromMe && msg.message) {
+      if (msg.message) {
+        const isFromMe = msg.key.fromMe || false;
         let remoteJid = msg.key.remoteJid;
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+        
+        // Ignore status updates
+        if (remoteJid === 'status@broadcast') continue;
         
         // Baileys v6+ uses LID format (e.g., 280981240049808@lid)
         // We need the real phone number. Try participant field or pushName.
@@ -179,7 +183,7 @@ export async function initWhatsApp(sessionName: string = 'default') {
         // Pass message to Message Pipeline
         if (text && remoteJid && messageId) {
           const lid = remoteJid.endsWith('@lid') ? remoteJid.split('@')[0] : undefined;
-          processIncomingMessage(remoteJid, text, globalConfig.botId, globalConfig.orgId, realPhone, pushName, messageId, lid).catch(err => {
+          processIncomingMessage(remoteJid, text, globalConfig.botId, globalConfig.orgId, realPhone, pushName, messageId, lid, isFromMe).catch(err => {
             logger.error({ err }, 'Pipeline execution failed');
           });
         }
