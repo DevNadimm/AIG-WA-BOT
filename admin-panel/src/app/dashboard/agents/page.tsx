@@ -105,7 +105,7 @@ export default async function AgentsPage() {
                         <ViewAgentDialog agent={agent} />
                         <Link href={`/dashboard/agents/${agent.id}`}>
                           <Button variant="ghost" size="sm">
-                            <Edit01Icon className="h-4 w-4 mr-2" /> Edit01Icon
+                            <Edit01Icon className="h-4 w-4 mr-2" /> Edit
                           </Button>
                         </Link>
                       </div>
