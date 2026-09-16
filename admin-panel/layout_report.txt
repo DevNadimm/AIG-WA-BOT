@@ -1,0 +1,129 @@
+--- agents\new\page.tsx ---
+<div className="space-y-8 pb-20">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard/agents">
+          <Button variant="outline" size="icon">
+            <ArrowLeft classN
+
+--- agents\page.tsx ---
+<div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">AI Agents</h1>
+          <
+
+--- agents\[id]\page.tsx ---
+<div className="space-y-8 pb-20">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/agents">
+            <But
+
+--- conversations\page.tsx ---
+<ConversationsLayout 
+      inbox={
+        <InboxList 
+          initialConversations={conversations || []} 
+          selectedId={selectedId || selectedConversation?.id || null}
+          hasMoreCon
+
+--- docs\page.tsx ---
+<div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Documentation</h1>
+
+--- intents\new\page.tsx ---
+<div className="space-y-8">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard/intents">
+          <Button variant="outline" size="icon">
+            <ArrowLeft className="
+
+--- intents\page.tsx ---
+<div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Intents</h1>
+          <p
+
+--- knowledge\new\page.tsx ---
+<div className="space-y-8 pb-20">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard/knowledge">
+          <Button variant="outline" size="icon">
+            <ArrowLeft cla
+
+--- knowledge\page.tsx ---
+<div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Knowledge Base</h1>
+
+--- knowledge\[id]\page.tsx ---
+<div className="space-y-8 pb-20">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/knowledge">
+            <
+
+--- page.tsx ---
+<div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Dashb
+
+--- settings\page.tsx ---
+<div className="space-y-6 max-w-5xl pb-20">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Settings</h1>
+        <p className="text-zinc-400 text-sm mt-1">Manage s
+
+--- support\page.tsx ---
+<div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Support & Help Center</h1>
+
+--- tools\new\page.tsx ---
+<div className="space-y-8">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard/tools">
+          <Button variant="outline" size="icon">
+            <ArrowLeft className="h-
+
+--- tools\page.tsx ---
+<div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Tools & APIs</h1>
+
+--- tools\[id]\page.tsx ---
+<div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/tools">
+            <Button var
+
+--- workflows\new\page.tsx ---
+<div className="space-y-8">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard/workflows">
+          <Button variant="outline" size="icon">
+            <ArrowLeft className
+
+--- workflows\page.tsx ---
+<div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Workflows</h1>
+          <
+
+--- workflows\[id]\page.tsx ---
+<div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard/workflows">
+          <Button variant="outline" size="icon">
+            <ArrowLeft className
+
