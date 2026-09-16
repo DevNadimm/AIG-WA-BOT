@@ -7,7 +7,7 @@ import { Input } from"@/components/ui/input";
 import { Label } from"@/components/ui/label";
 import { Textarea } from"@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from"@/components/ui/card";
-import { Add01Icon, Delete02Icon, Menu01Icon, ArrowDown01Icon, ArrowUp01Icon, FloppyDiskIcon, Comment01Icon, HandIcon, UserSetting01Icon } from "hugeicons-react";
+import { Add01Icon, Delete02Icon, Menu01Icon, ArrowDown01Icon, ArrowUp01Icon, FloppyDiskIcon, Comment01Icon, HandGripIcon, UserSettings01Icon } from "hugeicons-react";
 import { toast } from"sonner";
 
 type Step = {
@@ -21,8 +21,8 @@ type Step = {
 
 const STEP_TYPES = [
   { id:"SEND_MESSAGE", label:"Send Message", icon: Comment01Icon },
-  { id:"COLLECT_FIELD", label:"Collect Field", icon: UserSetting01Icon },
-  { id:"HANDOFF", label:"Handoff to Human", icon: HandIcon },
+  { id:"COLLECT_FIELD", label:"Collect Field", icon: UserSettings01Icon },
+  { id:"HANDOFF", label:"Handoff to Human", icon: HandGripIcon },
 ];
 
 export function WorkflowBuilder({ workflowId, initialSteps }: { workflowId: string, initialSteps: Step[] }) {
