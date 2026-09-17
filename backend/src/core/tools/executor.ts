@@ -22,6 +22,9 @@ export function extractResponse(responseData: any, mapping: any): any {
     const keys = mapping.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "").split(".");
     let value = responseData;
     for (const key of keys) {
+      if (key === "__proto__" || key === "constructor" || key === "prototype") {
+        return undefined; // Prevent prototype traversal
+      }
       if (value === null || value === undefined) break;
       if (key === "response" || key === "data" && value[key] === undefined && value !== undefined) {
          continue; 
@@ -62,8 +65,11 @@ export async function executeExternalApi(url: string, method: string, headers: a
       }
     }
     
-    if (net.isIPv6(parsedUrl.hostname)) {
-      const isPriv = parsedUrl.hostname.toLowerCase().startsWith("fc") || parsedUrl.hostname.toLowerCase().startsWith("fd") || parsedUrl.hostname.toLowerCase().startsWith("fe80");
+    const hostWithoutBrackets = parsedUrl.hostname.replace(/^\[|\]$/g, "");
+    
+    if (net.isIPv6(hostWithoutBrackets)) {
+      const lower = hostWithoutBrackets.toLowerCase();
+      const isPriv = lower.startsWith("fc") || lower.startsWith("fd") || lower.startsWith("fe80");
       if (isPriv) throw new ToolError("SSRF_BLOCKED", "Access to private IPv6 ranges is prohibited.");
     }
 
@@ -74,10 +80,17 @@ export async function executeExternalApi(url: string, method: string, headers: a
       controller.abort();
     }, boundedTimeout);
 
-    // Sanitize headers for logging
-    const safeHeaders = { ...headers };
-    if (safeHeaders["Authorization"]) safeHeaders["Authorization"] = "***";
-    if (safeHeaders["x-api-key"]) safeHeaders["x-api-key"] = "***";
+    const safeHeaders: Record<string, string> = {};
+    if (headers) {
+      for (const [k, v] of Object.entries(headers)) {
+        const lowerK = k.toLowerCase();
+        if (lowerK.includes("auth") || lowerK.includes("key") || lowerK.includes("token") || lowerK.includes("secret") || lowerK.includes("pass")) {
+          safeHeaders[k] = "***";
+        } else {
+          safeHeaders[k] = v as string;
+        }
+      }
+    }
 
     logger.info({ url, method, headers: safeHeaders }, `Executing safe API request`);
     

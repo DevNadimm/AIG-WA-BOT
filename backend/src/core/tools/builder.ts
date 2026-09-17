@@ -1,7 +1,14 @@
 export function renderTemplate(template: string, context: any): string {
   if (!template || typeof template !== "string") return template;
+  
+  const ALLOWED_NAMESPACES = ["customer", "conversation", "workflow", "variables", "args", "user_message"];
+  
   return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, path) => {
     const keys = path.split(".");
+    if (!ALLOWED_NAMESPACES.includes(keys[0])) {
+      return ""; // Deny access to anything outside allowed namespaces (e.g. process, env, secrets)
+    }
+
     let value = context;
     for (const key of keys) {
       if (value === null || value === undefined) break;

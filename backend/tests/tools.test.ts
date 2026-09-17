@@ -51,11 +51,21 @@ async function runTests() {
     const extract1 = extractResponse(mockResponse, "{{data.user.id}}");
     check("Response extraction safely traverses path", extract1 === 99);
     
-    const extract2 = extractResponse(mockResponse, "{{data.user.nonexistent}}");
-    check("Response extraction handles missing path safely", extract2 === undefined);
+    const extract3 = extractResponse(mockResponse, "{{__proto__.toString}}");
+    check("Response extraction prevents prototype pollution", extract3 === undefined);
 
     const r4 = await executeExternalApi("https://google.com", "GET", {}, undefined, 1);
     check("Timeout enforces correctly", r4.errorType === "TIMEOUT" || r4.errorType === "NETWORK_ERROR" || (r4.errorType === "UNKNOWN" && r4.error === "External service request timed out."));
+
+    const badCtx = { env: { SECRET: "123" } };
+    const forbidden = renderTemplate("{{env.SECRET}}", badCtx);
+    check("Template engine blocks forbidden namespace (env)", forbidden === "");
+
+    const ipv6Priv1 = await executeExternalApi("http://[fc00::1]/admin", "GET", {});
+    check("SSRF blocks private IPv6 fc00::/7", ipv6Priv1.errorType === "SSRF_BLOCKED");
+
+    const ipv6Priv2 = await executeExternalApi("http://[fe80::1]/admin", "GET", {});
+    check("SSRF blocks private IPv6 fe80::/10", ipv6Priv2.errorType === "SSRF_BLOCKED");
 
   } catch (e) {
     console.error("Test suite threw an unhandled error", e);

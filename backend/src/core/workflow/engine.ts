@@ -82,8 +82,17 @@ export async function executeWorkflow(
 
     let currentStep = startStepId ? steps.find(s => s.id === startStepId) : steps[0];
     let isFirstIteration = true;
+    let workflowLoops = 0;
+    const MAX_WORKFLOW_LOOPS = 25;
 
     while (currentStep) {
+      workflowLoops++;
+      if (workflowLoops > MAX_WORKFLOW_LOOPS) {
+        logger.error({ event: 'workflow_loop_limit_exceeded', workflow_id: workflowId, conversation_id: conversationId });
+        await sendWhatsAppMessage(remoteJid, "An internal error occurred (workflow loop limit exceeded).", conversationId);
+        break;
+      }
+      
       logger.info({ event: 'workflow_step_started', workflow_id: workflowId, step_id: currentStep.id, step_type: currentStep.step_type });
       
       const isResumingThisStep = isFirstIteration && isResume;
@@ -521,7 +530,19 @@ IMPORTANT INSTRUCTIONS:
                     apiData = { error: "API connection configuration not found for this tool." };
                 }
             } else if (tool.tool_type === 'KNOWLEDGE_SEARCH') {
-                apiData = { error: "KNOWLEDGE_SEARCH not fully implemented." };
+                try {
+                    const { searchKnowledge } = await import('../knowledge/search.js');
+                    const queryRaw = call.args?.query || call.args?.q || '';
+                    const query = typeof queryRaw === 'string' ? queryRaw : JSON.stringify(queryRaw);
+                    if (!query || query === '""') {
+                        apiData = { error: "Query is required for knowledge search." };
+                    } else {
+                        const results = await searchKnowledge(query, agentId, 0.5, 3);
+                        apiData = { results: results.map(r => ({ source: r.source_name, content: r.chunk_text })) };
+                    }
+                } catch (err: any) {
+                    apiData = { error: err.message || "Failed to search knowledge." };
+                }
             } else {
                 apiData = { error: `Unsupported tool type: ${tool.tool_type}` };
             }
