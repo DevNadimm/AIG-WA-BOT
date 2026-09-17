@@ -469,32 +469,75 @@ IMPORTANT INSTRUCTIONS:
       const toolResults = [];
       
       for (const call of response.functionCalls) {
-        const tool = activeTools?.find(t => t.name === call.name);
-        let apiData = null;
-        if (tool && tool.configuration?.endpoint) {
-          try {
-            const result = await executeIdempotentTool(
-              conversationId,
-              step.workflow_id, // we might not have workflow_id directly on step but it's passed or stored. Actually `step` has `workflow_id`.
-              step.id,
-              tool.name,
-              tool.configuration.method || 'GET',
-              tool.configuration.endpoint,
-              tool.configuration.method === 'POST' ? call.args : undefined,
-              tool.configuration.supports_idempotency === true
-            );
-            if (result.error) apiData = { error: result.error };
-            else apiData = result.data;
-          } catch (err) {
-            apiData = { error: "External service is unavailable." };
+          const tool = activeTools?.find(t => t.name === call.name);
+          let apiData: any = null;
+          
+          if (tool) {
+            if (tool.tool_type === 'REST_API' || tool.tool_type === 'WEBHOOK' || !tool.tool_type) {
+                const apiConfig = configCache.getTable('api_connections').find(c => c.tool_id === tool.id);
+                if (apiConfig) {
+                    try {
+                        const credentials = configCache.getTable('tool_credentials').filter(c => c.tool_id === tool.id);
+                        let authCredential = credentials.find(c => c.credential_key === 'auth')?.encrypted_value; 
+
+                        const context = {
+                            customer: { name: customerName, phone: phone },
+                            args: call.args || {},
+                        };
+
+                        const { buildUrl, buildRequestHeaders, buildRequestBody } = await import('../tools/builder.js');
+                        const { executeIdempotentTool, extractResponse } = await import('../tools/executor.js');
+                        
+                        const method = apiConfig.method || 'GET';
+                        const url = buildUrl(apiConfig.url, apiConfig.query_params, context);
+                        const headers = buildRequestHeaders(apiConfig.headers, context, apiConfig.auth_type, authCredential);
+                        const body = (method !== 'GET' && method !== 'HEAD') 
+                                      ? buildRequestBody(apiConfig.body_mapping || call.args, context) 
+                                      : undefined;
+                                      
+                        const result = await executeIdempotentTool(
+                            conversationId,
+                            step.workflow_id,
+                            step.id,
+                            tool.name,
+                            method,
+                            url,
+                            headers,
+                            body,
+                            apiConfig.timeout_ms || 5000,
+                            method !== 'GET' // supportsIdempotency proxy flag
+                        );
+                        
+                        if (result.error) {
+                            apiData = { error: result.error, type: result.errorType };
+                        } else {
+                            apiData = extractResponse(result.data, apiConfig.response_mapping);
+                        }
+                    } catch (err: any) {
+                        logger.error({ err }, `Failed to execute external tool ${tool.name}`);
+                        apiData = { error: err.message || "External service is unavailable." };
+                    }
+                } else {
+                    apiData = { error: "API connection configuration not found for this tool." };
+                }
+            } else if (tool.tool_type === 'KNOWLEDGE_SEARCH') {
+                apiData = { error: "KNOWLEDGE_SEARCH not fully implemented." };
+            } else {
+                apiData = { error: `Unsupported tool type: ${tool.tool_type}` };
+            }
+          } else {
+            logger.warn({ event: 'tool_permission_denied', tool_name: call.name });
+            apiData = { error: "Tool permission denied or tool not found." };
           }
-        } else {
-          apiData = { error: "Tool endpoint not found." };
+          toolResults.push({ functionResponse: { name: call.name, response: apiData } });
         }
-        toolResults.push({ functionResponse: { name: call.name, response: apiData } });
-      }
       
-      contents.push({ role: 'model', parts: response.parts });
+      const parts: any[] = [];
+      if (response.text) parts.push({ text: response.text });
+      if (response.functionCalls) {
+          response.functionCalls.forEach(call => parts.push({ functionCall: call }));
+      }
+      contents.push({ role: 'model', parts });
       contents.push({ role: 'user', parts: toolResults });
     } else if (response?.text) {
       aiReply = response.text;

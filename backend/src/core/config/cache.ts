@@ -1,37 +1,38 @@
-import { supabase } from '../../config/supabase.js';
-import { logger } from '../../app.js';
+import { supabase } from "../../config/supabase.js";
+import { logger } from "../../app.js";
 
 class ConfigCache {
   private cache = new Map<string, any[]>();
   private initialized = false;
 
   private tablesToCache = [
-    'ai_agents',
-    'ai_models',
-    'ai_prompts',
-    'intents',
-    'workflows',
-    'workflow_steps',
-    'workflow_transitions',
-    'tools',
-    'tool_parameters',
-    'tool_permissions',
-    'business_rules'
+    "ai_agents",
+    "ai_models",
+    "ai_prompts",
+    "intents",
+    "workflows",
+    "workflow_steps",
+    "workflow_transitions",
+    "tools",
+    "tool_parameters",
+    "tool_permissions",
+    "api_connections",
+    "tool_credentials",
+    "business_rules"
   ];
 
   async init() {
     if (this.initialized) return;
     
-    logger.info('Initializing Configuration Cache...');
+    logger.info("Initializing Configuration Cache...");
     await this.reloadAll();
 
-    // Listen to realtime changes on these tables
-    const channel = supabase.channel('config_cache');
+    const channel = supabase.channel("config_cache");
     
     for (const table of this.tablesToCache) {
       channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
+        "postgres_changes",
+        { event: "*", schema: "public", table },
         async (payload) => {
           logger.info(`Detected change in ${table}, reloading cache...`);
           await this.reloadTable(table);
@@ -41,7 +42,7 @@ class ConfigCache {
     
     channel.subscribe();
     this.initialized = true;
-    logger.info('Configuration Cache initialized and subscribing to realtime events.');
+    logger.info("Configuration Cache initialized and subscribing to realtime events.");
   }
 
   private async reloadAll() {
@@ -50,7 +51,7 @@ class ConfigCache {
 
   private async reloadTable(table: string) {
     try {
-      const { data, error } = await supabase.from(table).select('*');
+      const { data, error } = await supabase.from(table).select("*");
       if (error) {
         logger.error({ err: error }, `Failed to reload table ${table} into cache`);
         return;
@@ -72,3 +73,4 @@ class ConfigCache {
 }
 
 export const configCache = new ConfigCache();
+

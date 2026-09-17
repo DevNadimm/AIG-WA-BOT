@@ -102,7 +102,7 @@ export async function initWhatsApp(sessionName: string = 'default') {
             logger.info('Session folder cleared successfully.');
           }
         } catch (err) {
-          logger.error('Failed to clear session folder:', err);
+          logger.error({ err }, 'Failed to clear session folder');
         }
         
         // Restart the connection to generate a new QR code immediately
