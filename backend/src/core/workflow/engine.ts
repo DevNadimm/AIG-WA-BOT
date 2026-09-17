@@ -487,7 +487,11 @@ IMPORTANT INSTRUCTIONS:
                 if (apiConfig) {
                     try {
                         const credentials = configCache.getTable('tool_credentials').filter(c => c.tool_id === tool.id);
-                        let authCredential = credentials.find(c => c.credential_key === 'auth')?.encrypted_value; 
+                        let authCredential = credentials.find(c => c.credential_key === 'auth')?.encrypted_value;
+                        if (authCredential) {
+                            const { decrypt } = await import('../security/crypto.js');
+                            authCredential = await decrypt(authCredential);
+                        }
 
                         const context = {
                             customer: { name: customerName, phone: phone },
